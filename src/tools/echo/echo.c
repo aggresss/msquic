@@ -67,17 +67,17 @@ const QUIC_BUFFER Alpn = { sizeof("sample") - 1, (uint8_t*)"sample" };
 //
 // The UDP port used by the server side of the protocol.
 //
-const uint16_t UdpPort = 4567;
+const uint16_t UdpPort = 5059;
 
 //
 // The default idle timeout period (1 second) used for the protocol.
 //
-const uint64_t IdleTimeoutMs = 1000;
+const uint64_t IdleTimeoutMs = 2000;
 
 //
 // The length of buffer sent over the streams in the protocol.
 //
-const uint32_t SendBufferLength = 100;
+const uint32_t SendBufferLength = 12;
 
 //
 // The QUIC API/function table returned from MsQuicOpen2. It contains all the
@@ -111,38 +111,6 @@ void PrintUsage()
         "  quicecho.exe -server -cert_hash:<...>\n"
         "  quicecho.exe -server -cert_file:<...> -key_file:<...> [-password:<...>]\n"
         );
-}
-
-
-static int interrupted = 0;
-
-void HandleInterrupt(
-    _In_ int sig
-    )
-{
-    interrupted = 1;
-}
-
-int
-GetStringFromStdin(
-    _Out_ char* str,
-    _In_ int n
-    )
-{
-    char* str_read = fgets(str, n, stdin);
-    if (!str_read)
-        return 0;
-
-    int i = 0;
-    while (str[i] != '\n' && str[i] != '\0') {
-        i++;
-    }
-
-    if (str[i] == '\n') {
-        str[i] = '\0';
-    }
-
-    return i - 1;
 }
 
 //
@@ -243,7 +211,9 @@ ServerSend(
     SendBuffer->Buffer = (uint8_t*)SendBufferRaw + sizeof(QUIC_BUFFER);
     SendBuffer->Length = SendBufferLength;
 
-    printf("[strm][%p] Sending data...\n", Stream);
+    strncpy((char*)SendBuffer->Buffer, "ServerHello\n", SendBufferLength);
+
+    printf("[strm][%p] Sending data: %s\n", Stream, (char*)SendBuffer->Buffer);
 
     //
     // Sends the buffer over the stream. Note the FIN flag is passed along with
@@ -606,7 +576,7 @@ ClientStreamCallback(
         //
         // Data was received from the peer on the stream.
         //
-        printf("[strm][%p] Data received\n", Stream);
+        printf("[strm][%p] Data received: %s\n", Stream, Event->RECEIVE.Buffers->Buffer);
         break;
     case QUIC_STREAM_EVENT_PEER_SEND_ABORTED:
         //
@@ -680,7 +650,9 @@ ClientSend(
     SendBuffer->Buffer = SendBufferRaw + sizeof(QUIC_BUFFER);
     SendBuffer->Length = SendBufferLength;
 
-    printf("[strm][%p] Sending data...\n", Stream);
+    strncpy((char*)SendBuffer->Buffer, "ClientHello\n", SendBufferLength);
+
+    printf("[strm][%p] Sending data: %s\n", Stream, (char*)SendBuffer->Buffer);
 
     //
     // Sends the buffer over the stream. Note the FIN flag is passed along with
@@ -875,14 +847,6 @@ RunClient(
     if (QUIC_FAILED(Status = MsQuic->ConnectionStart(Connection, Configuration, QUIC_ADDRESS_FAMILY_UNSPEC, Target, UdpPort))) {
         printf("ConnectionStart failed, 0x%x!\n", Status);
         goto Error;
-    }
-
-    (void)signal(SIGINT, HandleInterrupt);
-    (void)signal(SIGTERM, HandleInterrupt);
-    (void)signal(SIGKILL, HandleInterrupt);
-
-    while(!interrupted) {
-
     }
 
 Error:
