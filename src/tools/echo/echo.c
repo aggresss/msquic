@@ -44,6 +44,9 @@ Abstract:
 //
 #pragma warning(disable:5105)
 #endif
+
+#define QUIC_API_ENABLE_INSECURE_FEATURES 1 // For disabling encryption
+
 #include "msquic.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -372,6 +375,12 @@ ServerListenerCallback(
     QUIC_STATUS Status = QUIC_STATUS_NOT_SUPPORTED;
     switch (Event->Type) {
     case QUIC_LISTENER_EVENT_NEW_CONNECTION:
+        BOOLEAN value = TRUE;
+        MsQuic->SetParam(
+            Event->NEW_CONNECTION.Connection,
+            QUIC_PARAM_CONN_DISABLE_1RTT_ENCRYPTION,
+            sizeof(value),
+            &value);
         //
         // A new connection is being attempted by a client. For the handshake to
         // proceed, the server must provide a configuration for QUIC to use. The
@@ -797,6 +806,9 @@ RunClient(
     _In_reads_(argc) _Null_terminated_ char* argv[]
     )
 {
+#ifdef QUIC_PARAM_CONN_DISABLE_1RTT_ENCRYPTION
+    printf("QUIC_PARAM_CONN_DISABLE_1RTT_ENCRYPTION defined");
+#endif
     //
     // Load the client configuration based on the "unsecure" command line option.
     //
@@ -828,6 +840,9 @@ RunClient(
             goto Error;
         }
     }
+
+    BOOLEAN value = TRUE;
+    MsQuic->SetParam(Connection, QUIC_PARAM_CONN_DISABLE_1RTT_ENCRYPTION, sizeof(value), &value);
 
     //
     // Get the target / server name or IP from the command line.
