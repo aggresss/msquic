@@ -7,7 +7,7 @@ Abstract:
 
     Provides a very simple MsQuic API sample server and client application.
 
-    The quicsample app implements a simple protocol (ALPN "sample") where the
+    The quicecho app implements a simple protocol (ALPN "sample") where the
     client connects to the server, opens a single bidirectional stream, sends
     some data and shuts down the stream in the send direction. On the server
     side all connections, streams and data are accepted. After the stream is
@@ -57,7 +57,7 @@ Abstract:
 // the app (used for persistent storage and for debugging). It also configures
 // the execution profile, using the default "low latency" profile.
 //
-const QUIC_REGISTRATION_CONFIG RegConfig = { "quicsample", QUIC_EXECUTION_PROFILE_LOW_LATENCY };
+const QUIC_REGISTRATION_CONFIG RegConfig = { "quicecho", QUIC_EXECUTION_PROFILE_LOW_LATENCY };
 
 //
 // The protocol name used in the Application Layer Protocol Negotiation (ALPN).
@@ -103,14 +103,46 @@ void PrintUsage()
 {
     printf(
         "\n"
-        "quicsample runs a simple client or server.\n"
+        "quicecho runs a simple client or server.\n"
         "\n"
         "Usage:\n"
         "\n"
-        "  quicsample.exe -client -unsecure -target:{IPAddress|Hostname} [-ticket:<ticket>]\n"
-        "  quicsample.exe -server -cert_hash:<...>\n"
-        "  quicsample.exe -server -cert_file:<...> -key_file:<...> [-password:<...>]\n"
+        "  quicecho.exe -client -unsecure -target:{IPAddress|Hostname} [-ticket:<ticket>]\n"
+        "  quicecho.exe -server -cert_hash:<...>\n"
+        "  quicecho.exe -server -cert_file:<...> -key_file:<...> [-password:<...>]\n"
         );
+}
+
+
+static int interrupted = 0;
+
+void HandleInterrupt(
+    _In_ int sig
+    )
+{
+    interrupted = 1;
+}
+
+int
+GetStringFromStdin(
+    _Out_ char* str,
+    _In_ int n
+    )
+{
+    char* str_read = fgets(str, n, stdin);
+    if (!str_read)
+        return 0;
+
+    int i = 0;
+    while (str[i] != '\n' && str[i] != '\0') {
+        i++;
+    }
+
+    if (str[i] == '\n') {
+        str[i] = '\0';
+    }
+
+    return i - 1;
 }
 
 //
@@ -723,11 +755,11 @@ ClientConnectionCallback(
         // A resumption ticket (also called New Session Ticket or NST) was
         // received from the server.
         //
-        printf("[conn][%p] Resumption ticket received (%u bytes):\n", Connection, Event->RESUMPTION_TICKET_RECEIVED.ResumptionTicketLength);
-        for (uint32_t i = 0; i < Event->RESUMPTION_TICKET_RECEIVED.ResumptionTicketLength; i++) {
-            printf("%.2X", (uint8_t)Event->RESUMPTION_TICKET_RECEIVED.ResumptionTicket[i]);
-        }
-        printf("\n");
+        // printf("[conn][%p] Resumption ticket received (%u bytes):\n", Connection, Event->RESUMPTION_TICKET_RECEIVED.ResumptionTicketLength);
+        // for (uint32_t i = 0; i < Event->RESUMPTION_TICKET_RECEIVED.ResumptionTicketLength; i++) {
+        //     printf("%.2X", (uint8_t)Event->RESUMPTION_TICKET_RECEIVED.ResumptionTicket[i]);
+        // }
+        // printf("\n");
         break;
     default:
         break;
@@ -843,6 +875,14 @@ RunClient(
     if (QUIC_FAILED(Status = MsQuic->ConnectionStart(Connection, Configuration, QUIC_ADDRESS_FAMILY_UNSPEC, Target, UdpPort))) {
         printf("ConnectionStart failed, 0x%x!\n", Status);
         goto Error;
+    }
+
+    (void)signal(SIGINT, HandleInterrupt);
+    (void)signal(SIGTERM, HandleInterrupt);
+    (void)signal(SIGKILL, HandleInterrupt);
+
+    while(!interrupted) {
+
     }
 
 Error:
